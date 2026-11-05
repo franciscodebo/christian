@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hello, World</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #07060f;
+      --c1: #ff3cac;
+      --c2: #784ba0;
+      --c3: #2b86c5;
+      --c4: #00f5d4;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: var(--bg);
+      color: #fff;
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      display: grid;
+      place-items: center;
+      cursor: crosshair;
+    }
+    canvas { position: fixed; inset: 0; z-index: 0; }
+
+    .blob {
+      position: fixed;
+      width: 60vmax; height: 60vmax;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: .35;
+      z-index: 0;
+      animation: drift 18s ease-in-out infinite alternate;
+    }
+    .blob.a { background: var(--c1); top: -20vmax; left: -15vmax; }
+    .blob.b { background: var(--c3); bottom: -25vmax; right: -15vmax; animation-delay: -9s; }
+    @keyframes drift {
+      to { transform: translate(15vmax, 10vmax) scale(1.2) rotate(40deg); }
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 16px;
+      pointer-events: none;
+    }
+    h1 {
+      font-size: clamp(3rem, 13vw, 11rem);
+      font-weight: 700;
+      line-height: .95;
+      letter-spacing: -.04em;
+      background: linear-gradient(90deg, var(--c1), var(--c2), var(--c3), var(--c4), var(--c1));
+      background-size: 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: shimmer 6s linear infinite;
+      filter: drop-shadow(0 0 30px rgba(255, 60, 172, .35));
+    }
+    h1 span {
+      display: inline-block;
+      animation: rise .9s cubic-bezier(.2, .9, .3, 1.4) both;
+    }
+    @keyframes shimmer { to { background-position: 300% 0; } }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(60px) rotate(8deg) scale(.6); }
+    }
+    p {
+      margin-top: 1.5rem;
+      font-size: clamp(.9rem, 2.2vw, 1.25rem);
+      letter-spacing: .35em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, .6);
+      animation: fade 1.5s 1.2s both;
+    }
+    p::after {
+      content: "▋";
+      margin-left: .2em;
+      color: var(--c4);
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes fade { from { opacity: 0; letter-spacing: 1em; } }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="blob a"></div>
+  <div class="blob b"></div>
+  <canvas id="stars"></canvas>
+
+  <main>
+    <h1 id="title">Hello,<br />World</h1>
+    <p>move your mouse · click to burst</p>
+  </main>
+
+  <script>
+    // Split the title into letters for a staggered entrance
+    const title = document.getElementById("title");
+    let i = 0;
+    title.innerHTML = title.innerHTML
+      .split(/(<br\s*\/?>)/)
+      .map(part => part.startsWith("<br") ? part :
+        [...part].map(ch => `<span style="animation-delay:${(i++) * 70}ms">${ch}</span>`).join(""))
+      .join("");
+
+    // Particle field that follows the cursor and bursts on click
+    const canvas = document.getElementById("stars");
+    const ctx = canvas.getContext("2d");
+    const colors = ["#ff3cac", "#784ba0", "#2b86c5", "#00f5d4", "#ffffff"];
+    const mouse = { x: innerWidth / 2, y: innerHeight / 2 };
+    let particles = [];
+
+    function resize() {
+      canvas.width = innerWidth * devicePixelRatio;
+      canvas.height = innerHeight * devicePixelRatio;
+      canvas.style.width = innerWidth + "px";
+      canvas.style.height = innerHeight + "px";
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    }
+
+    function spawn(x, y, speed = 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const v = (Math.random() * 2 + .5) * speed;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * v,
+        vy: Math.sin(angle) * v,
+        life: 1,
+        size: Math.random() * 2.5 + .5,
+        color: colors[(Math.random() * colors.length) | 0],
+      });
+    }
+
+    addEventListener("resize", resize);
+    addEventListener("pointermove", e => {
+      mouse.x = e.clientX; mouse.y = e.clientY;
+      for (let k = 0; k < 3; k++) spawn(mouse.x, mouse.y, .6);
+    });
+    addEventListener("pointerdown", e => {
+      for (let k = 0; k < 120; k++) spawn(e.clientX, e.clientY, 4);
+    });
+
+    function tick() {
+      ctx.fillStyle = "rgba(7, 6, 15, 0.18)";
+      ctx.fillRect(0, 0, innerWidth, innerHeight);
+
+      // Ambient sparkles
+      if (Math.random() < .5) spawn(Math.random() * innerWidth, Math.random() * innerHeight, .2);
+
+      ctx.globalCompositeOperation = "lighter";
+      particles = particles.filter(p => {
+        p.x += p.vx; p.y += p.vy;
+        p.vx *= .98; p.vy *= .98;
+        p.vy += .01;
+        p.life -= .01;
+        ctx.globalAlpha = Math.max(p.life, 0);
+        ctx.fillStyle = p.color;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        return p.life > 0;
+      });
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = "source-over";
+      requestAnimationFrame(tick);
+    }
+
+    resize();
+    tick();
+  </script>
+</body>
+</html>
